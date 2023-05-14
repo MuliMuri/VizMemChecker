@@ -3,6 +3,7 @@
 #include "common.h"
 #include "win_nt_def.h"
 #include "hk_controller.h"
+#include "code_decoder.h"
 #include "injector_caller.h"
 
 
@@ -32,23 +33,17 @@ HKSTATUS EXPORT HK_Initialize(DWORD pid)//TODO: change
 {
 	// Create a heap to be save MATCH_LIB_FILES node
 
-	g_hooksListHeap = HeapCreate(HEAP_GENERATE_EXCEPTIONS, 0x1000, 0x10000);		// 4KB -> 64KB
-	if (!g_hooksListHeap)
+	g_hookListHeap = HeapCreate(HEAP_GENERATE_EXCEPTIONS, 0x1000, 0x10000);		// 4KB -> 64KB
+	if (!g_hookListHeap)
 		return HK_STATUS_FATAL;
 
-	g_hooksRawHeap = HeapCreate(HEAP_GENERATE_EXCEPTIONS, 0x1000, 0x10000);
-	if (!g_hooksRawHeap)
-	{
-		HeapDestroy(g_hooksListHeap);
-		return HK_STATUS_FATAL;
-	}
-
-	g_hookList = HeapAlloc(g_hooksListHeap, HEAP_ZERO_MEMORY, sizeof(HOOK_NODE));
+	g_hookList = HeapAlloc(g_hookListHeap, HEAP_ZERO_MEMORY, sizeof(HOOK_NODE));
 	if (!g_hookList)
 		return HK_STATUS_FATAL;
 
 	InitializeListHead(&g_hookList->ListEntry);
 
+	DECODER_Initialize();
 	CALLER_Initialize(pid);
 
 	return HK_STATUS_SUCCESS;
@@ -59,7 +54,7 @@ HKSTATUS EXPORT HK_AppendHookNode(WCHAR* FileName, WCHAR* FuncName)
 	// Maybe allocate char memory?
 	// sometimes the chars will be free in caller (like stack free)
 
-	HOOK_NODE* hookNode = HeapAlloc(g_hooksListHeap, HEAP_ZERO_MEMORY, sizeof(HOOK_NODE));
+	HOOK_NODE* hookNode = HeapAlloc(g_hookListHeap, HEAP_ZERO_MEMORY, sizeof(HOOK_NODE));
 	if (!hookNode)
 		return HK_STATUS_FATAL;
 
@@ -85,7 +80,7 @@ HKSTATUS EXPORT HK_RemoveHookNode(WCHAR* FileName, WCHAR* FuncName)
 	if (!Entry)
 	{
 		RemoveEntryList(Entry);
-		HeapFree(g_hooksListHeap, 0, CONTAINING_RECORD(Entry, HOOK_NODE, ListEntry));
+		HeapFree(g_hookListHeap, 0, CONTAINING_RECORD(Entry, HOOK_NODE, ListEntry));
 	}
 
 	return HK_STATUS_SUCCESS;

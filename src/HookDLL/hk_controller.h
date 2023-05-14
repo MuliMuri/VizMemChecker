@@ -2,8 +2,8 @@
 #ifndef __HK_CONTROLLER_H__
 #define __HK_CONTROLLER_H__
 
-static HANDLE			g_hooksListHeap;			// A heap be save nodes of hooks structs
-static HANDLE			g_hooksRawHeap;				// A head be save hooks raw function code
+static HANDLE			g_hookListHeap;			// A heap be save nodes of hooks structs
+
 static PHOOK_NODE		g_hookList;					// HOOK_NODE ListEntry
 
 

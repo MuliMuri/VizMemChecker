@@ -57,3 +57,4 @@ dkms.conf
 /src/.vs
 /src/*/Debug
 
+/.vs

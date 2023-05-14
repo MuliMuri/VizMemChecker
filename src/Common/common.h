@@ -12,29 +12,25 @@ typedef SHORT HKSTATUS;
 #define HK_STATUS_SUCCESS	0x0000
 #define HK_STATUS_FATAL		0xC000
 
-
+#define HOOK_STUB_LENGTH	0xF		// E9 0xXXXXXXXX	68 0xXXXXXXXX	push and jmp
 
 /*************		INJTOR CONFIG		*************/
 
 #define BUFFER_LENGTH	0x1000
 
+#define DISASM_LENGTH	0x20
+
 #define INJTOR_PIPE_NAME		L"\\\\.\\pipe\\MemLeakChecker\\"
 
-#define COMMAND_ENABLE_HOOK		0x00
-#define COMMAND_DISABLE_HOOK	0x01
+#define COMMAND_HOOK_ENABLE		0x00
+#define COMMAND_HOOK_DISABLE	0x01
+#define COMMAND_HOOK_CALCSTUB	0x02
 
 #define COMMAND_DEBUG_DETACH	0xC0
 
 #define COMMAND_ERR				0xFF
 
 /*************		INJTOR CONFIG		*************/
-
-typedef struct _INSTRUCTION
-{
-	UCHAR	Opcode;
-	SHORT	Length;
-
-}INSTRUCTION, *PINSTRUCTION;
 
 typedef struct _MATCH_LIB_FILES
 {
@@ -48,35 +44,29 @@ typedef struct _HOOK_NODE
 	LIST_ENTRY			ListEntry;
 	MATCH_LIB_FILES		Match;						// Match Dll and Function
 	BYTE				HookState;					// Enable or disable
-	CHAR*				HookAddress;				// Hook program address
-	CHAR*				HandlerAddress;				// Jmp to my hook function
+	BYTE*				HookAddress;				// Hook program address
+	BYTE*				HandlerAddress;				// Jmp to my hook function
 	SHORT				HookFuncRawCodeOffset;		// Raw code before hook
+	SHORT				HookFuncRawCodeSize;		// Raw code size
 	SHORT				HookPageProtect;			// Old page protect
 	BOOLEAN				BitWide;					// x86 or x64
 
-	CHAR				Data[0xFF];
+	BYTE				Data[0xFF];
 
 }HOOK_NODE, * PHOOK_NODE;
 
 typedef struct _CALLER_COMMAND
 {
 	BYTE Command;
-	union _CommandUnion
+
+	union
 	{
 		HOOK_NODE HookNode;
+		BYTE	AsmCode[DISASM_LENGTH];
+		SHORT	HookSize;
 
-	}CommandUnion;
+	}Context;
 
 }CALLER_COMMAND, * PCALLER_COMMAND;
-
-void inline jmp_to_86(unsigned int address)
-{
-	((void(*)())address)();
-}
-
-void inline jmp_to_64()
-{
-
-}
 
 #endif // !__COMMON_H__

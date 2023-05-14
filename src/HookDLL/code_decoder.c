@@ -9,9 +9,37 @@
 
 HKSTATUS DECODER_Initialize()
 {
-	HKSTATUS status = HK_STATUS_SUCCESS;
+	g_insnHeap = HeapCreate(HEAP_GENERATE_EXCEPTIONS, 0x1000, 0x10000);
+	if (!g_insnHeap)
+		return HK_STATUS_FATAL;
 
-	
+	if (cs_open(CS_ARCH_X86, CS_MODE_32, &g_capstoneHandle) != CS_ERR_OK)
+		return HK_STATUS_FATAL;
 
-	return status;
+	return HK_STATUS_SUCCESS;
+}
+
+HKSTATUS DECODER_Decode(BYTE* asmCode, INSN_LIST* insnList)
+{
+	cs_insn* insn = NULL;
+	size_t count = 0;
+
+	count = cs_disasm(g_capstoneHandle, asmCode, 200, 0x00000000, 0, &insn);
+	if (!count)
+		return HK_STATUS_FATAL;
+
+	PINSN pInsn = HeapAlloc(g_insnHeap, HEAP_ZERO_MEMORY, count * sizeof(INSN));
+	if (!pInsn)
+		return HK_STATUS_FATAL;
+
+	for (size_t i = 0; i < count; i++)
+	{
+		pInsn[i].Address = insn[i].address;
+		pInsn[i].Size = insn[i].size;
+	}
+
+	insnList->Count = count;
+	insnList->Context = pInsn;
+
+	return HK_STATUS_SUCCESS;
 }

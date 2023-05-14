@@ -2,12 +2,33 @@
 #ifndef __INJECTOR_H__
 #define __INJECTOR_H__
 
-static HANDLE	g_hookNodeHeap;
+typedef struct _REGS
+{
+	DWORD eax;
+	DWORD ecx;
+	DWORD edx;
+	DWORD ebx;
+	DWORD esp;
+	DWORD ebp;
+	DWORD esi;
+	DWORD edi;
+
+}REGS;
+
+
+
+static HANDLE	g_hookListHeap;
 static HANDLE	g_runtimeHeap;
+
+static BYTE* g_execBuffer;
+
+static PHOOK_NODE g_hookList;
+static PHOOK_NODE	g_node;
+static REGS		g_regs;
+
 static HANDLE	g_pipe;
 
-static CHAR*	g_buffer;
-static INSTRUCTION* g_instLengthTable;
+static BYTE*	g_buffer;
 
 
 

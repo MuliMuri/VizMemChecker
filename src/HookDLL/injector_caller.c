@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "win_nt_def.h"
+#include "code_decoder.h"
 #include "injector_caller.h"
 
 HKSTATUS _Pipe_Initialize(DWORD pid)
@@ -28,8 +29,28 @@ HKSTATUS CALLER_EnableHook(PHOOK_NODE hookNode)
 {
 	DWORD size = 0;
 	CALLER_COMMAND cmd = { 0 };
-	cmd.Command = COMMAND_ENABLE_HOOK;
-	cmd.CommandUnion.HookNode = *hookNode;
+	INSN_LIST insnList = { 0 };
+	USHORT codeSize = 0;
+
+	cmd.Command = COMMAND_HOOK_ENABLE;
+	cmd.Context.HookNode = *hookNode;
 
 	WriteFile(g_pipe, &cmd, sizeof(CALLER_COMMAND), &size, NULL);
+	if (!ReadFile(g_pipe, &cmd, sizeof(CALLER_COMMAND), &size, NULL))
+		return HK_STATUS_FATAL;
+
+	BYTE* asmCode = cmd.Context.AsmCode;
+	DECODER_Decode(asmCode, &insnList);
+	
+	for (size_t i = 0; i < insnList.Count; i++)
+	{
+		codeSize += insnList.Context[i].Size;
+		if (codeSize >= HOOK_STUB_LENGTH)
+			break;
+	}
+
+	cmd.Context.HookSize = codeSize;
+	WriteFile(g_pipe, &cmd, sizeof(CALLER_COMMAND), &size, NULL);
+
+	return HK_STATUS_SUCCESS;
 }
