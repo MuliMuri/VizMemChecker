@@ -32,6 +32,23 @@ typedef SHORT HKSTATUS;
 
 /*************		INJTOR CONFIG		*************/
 
+//typedef struct _MEM_ALLOC_INFO_OPTIONAL
+//{
+//	DWORD
+//
+//}MEM_ALLOC_INFO_OPTIONAL, *PMEM_ALLOC_INFO_OPTIONAL;
+
+typedef struct _MEM_ALLOC_INFO_NODE
+{
+	LIST_ENTRY ListEntry;
+
+	PVOID	CallerAddress;
+
+	PVOID	MemoryAddress;
+	ULONG64 MemorySize;
+
+}MEM_ALLOC_INFO_NODE, *PMEM_ALLOC_INFO_NODE;
+
 typedef struct _MATCH_LIB_FILES
 {
 	SHORT	FileNameOffset;
