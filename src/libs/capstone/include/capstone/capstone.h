@@ -30,14 +30,14 @@ extern "C" {
 #endif
 #else
 #define CAPSTONE_API
-#if defined(__GNUC__) && !defined(CAPSTONE_STATIC)
+#if (defined(__GNUC__) || defined(__IBMC__)) && !defined(CAPSTONE_STATIC)
 #define CAPSTONE_EXPORT __attribute__((visibility("default")))
 #else    // defined(CAPSTONE_STATIC)
 #define CAPSTONE_EXPORT
 #endif
 #endif
 
-#ifdef __GNUC__
+#if (defined(__GNUC__) || defined(__IBMC__))
 #define CAPSTONE_DEPRECATED __attribute__((deprecated))
 #elif defined(_MSC_VER)
 #define CAPSTONE_DEPRECATED __declspec(deprecated)
@@ -85,6 +85,9 @@ typedef enum cs_arch {
 	CS_ARCH_M680X,		///< 680X architecture
 	CS_ARCH_EVM,		///< Ethereum architecture
 	CS_ARCH_MOS65XX,	///< MOS65XX architecture (including MOS6502)
+	CS_ARCH_WASM,		///< WebAssembly architecture
+	CS_ARCH_BPF,		///< Berkeley Packet Filter architecture (including eBPF)
+	CS_ARCH_RISCV,          ///< RISCV architecture
 	CS_ARCH_MAX,
 	CS_ARCH_ALL = 0xFFFF, // All architectures - for cs_support()
 } cs_arch;
@@ -115,6 +118,8 @@ typedef enum cs_mode {
 	CS_MODE_MIPS2 = 1 << 7, ///< Mips II ISA
 	CS_MODE_V9 = 1 << 4, ///< SparcV9 mode (Sparc)
 	CS_MODE_QPX = 1 << 4, ///< Quad Processing eXtensions mode (PPC)
+	CS_MODE_SPE = 1 << 5, ///< Signal Processing Engine mode (PPC)
+	CS_MODE_BOOKE = 1 << 6, ///< Book-E mode (PPC)
 	CS_MODE_M68K_000 = 1 << 1, ///< M68K 68000 mode
 	CS_MODE_M68K_010 = 1 << 2, ///< M68K 68010 mode
 	CS_MODE_M68K_020 = 1 << 3, ///< M68K 68020 mode
@@ -135,6 +140,18 @@ typedef enum cs_mode {
 	CS_MODE_M680X_CPU12 = 1 << 9, ///< M680X Motorola/Freescale/NXP CPU12
 					///< used on M68HC12/HCS12
 	CS_MODE_M680X_HCS08 = 1 << 10, ///< M680X Freescale/NXP HCS08 mode
+	CS_MODE_BPF_CLASSIC = 0,	///< Classic BPF mode (default)
+	CS_MODE_BPF_EXTENDED = 1 << 0,	///< Extended BPF mode
+	CS_MODE_RISCV32  = 1 << 0,        ///< RISCV RV32G
+	CS_MODE_RISCV64  = 1 << 1,        ///< RISCV RV64G
+	CS_MODE_RISCVC   = 1 << 2,        ///< RISCV compressed instructure mode
+	CS_MODE_MOS65XX_6502 = 1 << 1, ///< MOS65XXX MOS 6502
+	CS_MODE_MOS65XX_65C02 = 1 << 2, ///< MOS65XXX WDC 65c02
+	CS_MODE_MOS65XX_W65C02 = 1 << 3, ///< MOS65XXX WDC W65c02
+	CS_MODE_MOS65XX_65816 = 1 << 4, ///< MOS65XXX WDC 65816, 8-bit m/x
+	CS_MODE_MOS65XX_65816_LONG_M = (1 << 5), ///< MOS65XXX WDC 65816, 16-bit m, 8-bit x 
+	CS_MODE_MOS65XX_65816_LONG_X = (1 << 6), ///< MOS65XXX WDC 65816, 8-bit m, 16-bit x
+	CS_MODE_MOS65XX_65816_LONG_MX = CS_MODE_MOS65XX_65816_LONG_M | CS_MODE_MOS65XX_65816_LONG_X,
 } cs_mode;
 
 typedef void* (CAPSTONE_API *cs_malloc_t)(size_t size);
@@ -187,6 +204,7 @@ typedef enum cs_opt_value {
 	CS_OPT_SYNTAX_ATT,   ///< X86 ATT asm syntax (CS_OPT_SYNTAX).
 	CS_OPT_SYNTAX_NOREGNAME, ///< Prints register name with only number (CS_OPT_SYNTAX)
 	CS_OPT_SYNTAX_MASM, ///< X86 Intel Masm syntax (CS_OPT_SYNTAX).
+	CS_OPT_SYNTAX_MOTOROLA, ///< MOS65XX use $ as hex prefix
 } cs_opt_value;
 
 /// Common instruction operand types - to be consistent across all architectures.
@@ -258,7 +276,10 @@ typedef struct cs_opt_skipdata {
 	/// X86:     1 bytes.
 	/// XCore:   2 bytes.
 	/// EVM:     1 bytes.
+	/// RISCV:   4 bytes.
+	/// WASM:    1 bytes.
 	/// MOS65XX: 1 bytes.
+	/// BPF:     8 bytes.
 	cs_skipdata_cb_t callback; 	// default value is NULL
 
 	/// User-defined data to be passed to @callback function pointer.
@@ -278,7 +299,10 @@ typedef struct cs_opt_skipdata {
 #include "tms320c64x.h"
 #include "m680x.h"
 #include "evm.h"
+#include "riscv.h"
+#include "wasm.h"
 #include "mos65xx.h"
+#include "bpf.h"
 
 /// NOTE: All information in cs_detail is only available when CS_OPT_DETAIL = CS_OPT_ON
 /// Initialized as memset(., 0, offsetof(cs_detail, ARCH)+sizeof(cs_ARCH))
@@ -310,6 +334,9 @@ typedef struct cs_detail {
 		cs_m680x m680x; ///< M680X architecture
 		cs_evm evm;	    ///< Ethereum architecture
 		cs_mos65xx mos65xx;	///< MOS65XX architecture (including MOS6502)
+		cs_wasm wasm;	///< Web Assembly architecture
+		cs_bpf bpf;	///< Berkeley Packet Filter architecture (including eBPF)
+		cs_riscv riscv; ///< RISCV architecture
 	};
 } cs_detail;
 
@@ -522,18 +549,6 @@ const char * CAPSTONE_API cs_strerror(cs_err code);
 */
 CAPSTONE_EXPORT
 size_t CAPSTONE_API cs_disasm(csh handle,
-		const uint8_t *code, size_t code_size,
-		uint64_t address,
-		size_t count,
-		cs_insn **insn);
-
-/**
-  Deprecated function - to be retired in the next version!
-  Use cs_disasm() instead of cs_disasm_ex()
-*/
-CAPSTONE_EXPORT
-CAPSTONE_DEPRECATED
-size_t CAPSTONE_API cs_disasm_ex(csh handle,
 		const uint8_t *code, size_t code_size,
 		uint64_t address,
 		size_t count,

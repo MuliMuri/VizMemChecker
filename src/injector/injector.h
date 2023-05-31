@@ -13,6 +13,8 @@ typedef struct _REGS
 	DWORD esi;
 	DWORD edi;
 
+	DWORD ret;
+
 }REGS;
 
 

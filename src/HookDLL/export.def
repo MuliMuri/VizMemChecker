@@ -1,5 +1,0 @@
-EXPORTS
-	HK_Initialize			@1
-	HK_AppendHookNode		@2
-	HK_RemoveHookNode		@3
-	HK_EnableOnceHook		@4
