@@ -3,8 +3,8 @@
 #include "capstone/capstone.h"
 #include "capstone/x86.h"
 
-#include "common.h"
-#include "win_nt_def.h"
+#include "common/common.h"
+#include "common/win_nt_def.h"
 #include "code_decoder.h"
 
 HKSTATUS DECODER_Initialize()

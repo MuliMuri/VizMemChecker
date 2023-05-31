@@ -51,10 +51,15 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-/src/WinForm/bin
-/src/WinForm/obj
-/src/Debug
-/src/.vs
-/src/*/Debug
+# /src/WinForm/bin
+# /src/WinForm/obj
+# /src/Debug
+# /src/.vs
+# /src/*/Debug
 
-/.vs
+# /.vs
+*build
+*.vscode
+src/libs
+!src/libs/README.md
+

@@ -12,7 +12,12 @@ typedef SHORT HKSTATUS;
 #define HK_STATUS_SUCCESS	0x0000
 #define HK_STATUS_FATAL		0xC000
 
-#define HOOK_STUB_LENGTH	0xF		// E9 0xXXXXXXXX	68 0xXXXXXXXX	push and jmp
+/*
+* 0x68 0xXXXXXXXX		push &node							0x5
+* 0x68 0xXXXXXXXX		push address of HANDLER_xxx			0xA
+* 0xE9 0xXXXXXXXX		jmp HANDLER_PreCall (naked)			0xF
+*/
+#define HOOK_STUB_LENGTH	0xF
 
 /*************		INJTOR CONFIG		*************/
 
@@ -37,6 +42,14 @@ typedef SHORT HKSTATUS;
 //	DWORD
 //
 //}MEM_ALLOC_INFO_OPTIONAL, *PMEM_ALLOC_INFO_OPTIONAL;
+
+typedef struct _PROCESS_INFO
+{
+	HANDLE ProcessHandle;
+	CHAR 	ProcessName[64];
+	DWORD		ProcessId;
+
+} PROCESS_INFO, *PPROCESS_INFO;
 
 typedef struct _MEM_ALLOC_INFO_NODE
 {

@@ -1,7 +1,7 @@
 #include <Windows.h>
 
-#include "common.h"
-#include "win_nt_def.h"
+#include "common/common.h"
+#include "common/win_nt_def.h"
 #include "injector.h"
 
 /*
@@ -32,8 +32,6 @@ BYTE* _TryFindMatchFuncAddr(WCHAR* FileName, WCHAR* FuncName)
 
 HKSTATUS _CreateDebuggerByPipe(DWORD pid)
 {
-	DebugBreak();
-
 	WCHAR pipeName[64] = INJTOR_PIPE_NAME;
 	WCHAR wcPid[8] = { 0 };
 
@@ -110,8 +108,6 @@ BYTE* _CalcE9JmpAddress(BYTE* dstAddr, BYTE* srcAddr)
 
 VOID _jmpBack()
 {
-	DebugBreak();
-
 	SHORT size = g_node->HookFuncRawCodeSize;
 	BYTE stubCode[5] = { 0 };
 	stubCode[0] = '\xE9';
@@ -121,44 +117,42 @@ VOID _jmpBack()
 	RtlCopyMemory(g_execBuffer, &g_node->Data[g_node->HookFuncRawCodeOffset], size);
 	RtlCopyMemory(g_execBuffer + size, &stubCode, 0x5);
 
-
 	__asm
 	{
 		mov eax, g_regs.eax
-		mov ecx, g_regs.ecx
-		mov edx, g_regs.edx
-		mov ebx, g_regs.ebx
-		mov esp, g_regs.esp
-		mov ebp, g_regs.ebp
-		mov esi, g_regs.esi
-		mov edi, g_regs.edi
-
+    	mov ecx, g_regs.ecx
+    	mov edx, g_regs.edx
+    	mov ebx, g_regs.ebx
+    	mov esp, g_regs.esp
+    	mov ebp, g_regs.ebp
+    	mov esi, g_regs.esi
+    	mov edi, g_regs.edi
+    	
 		jmp g_execBuffer
 	}
 }
 
-VOID  __declspec(naked) HANDLER_PreCall()
+VOID __declspec(naked) HANDLER_PreCall()
 {
-	/*
-	* stack map
-	*
-	* push &node
-	* push address of HANDLER_xxx
-	*
-	*/
 	__asm
 	{
 		/*
-		* To have a reg to pop stack, 
-		* other wise need to add esp, 0x8 
-		* because have two push
-		*/
-		mov g_regs.eax, eax
+		stack map
 
-		pop eax		// address of HANDLER_xxx
+		push &node
+		push address of HANDLER_xxx
+		*/
+
+    	mov g_regs.eax, eax
+
+		pop eax					// address of HANDLER_xxx
 		pop g_node
 
 		mov g_regs.ecx, ecx
+
+		mov ecx, ss:[esp]
+		mov g_regs.ret, ecx		// address of caller
+
 		mov g_regs.edx, edx
 		mov g_regs.ebx, ebx
 		mov g_regs.esp, esp		// now in here, the address is same to raw
@@ -175,6 +169,8 @@ VOID  __declspec(naked) HANDLER_PreCall()
 // EntryPoint
 HKSTATUS INJTOR_Initialize()
 {
+	DebugBreak();
+	
 	HKSTATUS status = HK_STATUS_SUCCESS;
 
 	g_runtimeHeap = HeapCreate(HEAP_GENERATE_EXCEPTIONS, 0x1000, 0x10000);
@@ -207,7 +203,6 @@ HKSTATUS INJTOR_Initialize()
 
 	status = _TaskLoop();
 
-
 	return status;
 }
 
@@ -217,8 +212,7 @@ HKSTATUS INJTOR_Initialize()
 *	1. Copy something source byte code
 *	2. Edit to jmp to handler function
 *	3. Run handler
-*	4. Recover change
-*	5. Jmp back to source
+*	4. Run raw function
 * 
 */
 
@@ -280,9 +274,6 @@ HKSTATUS INJTOR_EnableHook(PHOOK_NODE hookInfo)
 
 	HeapFree(g_runtimeHeap, NULL, stubCode);
 
-	DebugBreak();
-	HeapCreate(HEAP_GENERATE_EXCEPTIONS, 0x1000, 0x10000);		// test call
-
 	return HK_STATUS_SUCCESS;
 }
 
@@ -307,7 +298,7 @@ VOID HANDLER_CountFuncion()
 	_jmpBack();
 }
 
-BOOL WINAPI DllMain(HINSTANCE const instance, DWORD const reason, LPVOID const reserved)
+BOOL APIENTRY DllMain(HINSTANCE const instance, DWORD const reason, LPVOID const reserved)
 {
 	switch (reason)
 	{
