@@ -40,7 +40,7 @@ HKSTATUS CALLER_EnableHook(PHOOK_NODE hookNode)
 		return HK_STATUS_FATAL;
 
 	BYTE* asmCode = cmd.Context.AsmCode;
-	DECODER_Decode(asmCode, &insnList);
+	DECODER_Decode(asmCode, size, &insnList);		// This size must greater than real size of asmCode, but we just need first few asmCodes' size
 	
 	for (size_t i = 0; i < insnList.Count; i++)
 	{
