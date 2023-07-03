@@ -94,6 +94,56 @@ VOID InsertHeadList(PLIST_ENTRY ListHead, PLIST_ENTRY Entry)
     return;
 }
 
+/*
+PLIST_ENTRY PopEntryList(PLIST_ENTRY ListHead)
+{
+    PLIST_ENTRY FirstEntry;
+
+    FirstEntry = ListHead->Blink;
+    if (FirstEntry != NULL)
+    {
+        ListHead->Blink = FirstEntry->Blink;
+        FirstEntry->Blink = FirstEntry->Flink = FirstEntry;
+    }
+
+    return FirstEntry;
+}
+
+VOID PushEntryList(PLIST_ENTRY ListHead, PLIST_ENTRY Entry)
+{
+    PLIST_ENTRY FirstEntry;
+
+    FirstEntry = ListHead->Blink;
+
+    FirstEntry->Flink = Entry;
+    Entry->Blink = FirstEntry;
+    Entry->Flink = ListHead;
+    ListHead->Blink = Entry;
+
+    return;
+}
+*/
+
+PSINGLE_LIST_ENTRY PopEntryList(PSINGLE_LIST_ENTRY ListHead)
+{
+    PSINGLE_LIST_ENTRY FirstEntry;
+
+    FirstEntry = ListHead->Next;
+    if (FirstEntry != NULL)
+    {
+        ListHead->Next = FirstEntry->Next;
+    }
+
+    return FirstEntry;
+}
+
+VOID PushEntryList(PSINGLE_LIST_ENTRY ListHead, PSINGLE_LIST_ENTRY Entry)
+{
+    Entry->Next = ListHead->Next;
+    ListHead->Next = Entry;
+    return;
+}
+
 VOID AppendTailList(PLIST_ENTRY ListHead, PLIST_ENTRY ListToAppend)
 {
     PLIST_ENTRY ListEnd = ListHead->Blink;
