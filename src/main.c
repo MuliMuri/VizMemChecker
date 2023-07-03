@@ -23,6 +23,8 @@
 
 #include "utils/logprint.h"
 
+#include "utils/logprint.h"
+
 PROCESS_INFO *g_processInfo = NULL;
 
 void _initialize()
@@ -118,13 +120,10 @@ int main(int argc, char* argv[])
 	// ========= Initialize environment ========= //
 	// ========================================== //
 
-
 	_initialize();
 
 	HK_AppendHookNode(L"Kernel32", L"HeapAlloc");
 	HK_EnableOnceHook(L"Kernel32", L"HeapAlloc");
-
-
 
 	arg_freetable(argtable, sizeof(argtable) / sizeof(argtable[0]));
 	return 0;

@@ -13,11 +13,20 @@ HKSTATUS _Pipe_Initialize(DWORD pid)
 	wsprintfW(wcPid, L"%d", pid);
 	wcscat(pipeName, wcPid);
 
-	if (!WaitNamedPipeW(pipeName, NMPWAIT_WAIT_FOREVER))
-		return HK_STATUS_FATAL;
+	for (size_t i = 0; i < 5; i++)
+	{
+		Sleep(1000);
+		if (!WaitNamedPipeW(pipeName, NMPWAIT_USE_DEFAULT_WAIT))
+		{
+			if (GetLastError() == ERROR_FILE_NOT_FOUND)
+				continue;
+			
+			return HK_STATUS_FATAL;
+		}
+		else break;
+	}	
 
 	g_pipe = CreateFileW(pipeName, GENERIC_WRITE | GENERIC_READ, FALSE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	// bugs?
 }
 
 HKSTATUS CALLER_Initialize(DWORD pid)

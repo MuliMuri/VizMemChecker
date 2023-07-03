@@ -7,7 +7,7 @@
 #include "injector_caller.h"
 
 
-PLIST_ENTRY _SearchHookNode(WCHAR* FileName, WCHAR* FuncName)
+PLIST_ENTRY _SearchHookNode(WCHAR* FileName, WCHAR* FuncName)	// TODO: Change back to PHOOK_NODE
 {
 	PLIST_ENTRY Entry = g_hookList->ListEntry.Flink;
 	WCHAR* hookFileName = NULL;
