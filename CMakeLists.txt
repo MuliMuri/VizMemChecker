@@ -8,30 +8,33 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/libs)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/libs/capstone/include)
 
+option(RUN_TEST_UNIT "Build and run unit tests" OFF)
+
 aux_source_directory(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    MAIN_SRC_LIST
+	${CMAKE_CURRENT_SOURCE_DIR}/src
+	MAIN_SRC_LIST
 )
 
 add_subdirectory(src/common)
 add_subdirectory(src/libs)
 add_subdirectory(src/core)
+add_subdirectory(src/utils)
 add_subdirectory(src/injector)
+if(RUN_TEST_UNIT)
+	enable_testing()
+	add_subdirectory(src/test)
+endif()
+
 
 add_executable(
-    ${PROJECT_NAME}
-    ${MAIN_SRC_LIST}
-)
-
-add_dependencies(
-    ${PROJECT_NAME}
-    common
-    core
+	${PROJECT_NAME}
+	${MAIN_SRC_LIST}
 )
 
 target_link_libraries(
-    ${PROJECT_NAME}
-    argtable3
-    common
-    core
+	${PROJECT_NAME}
+	argtable3
+	common
+	core
+	utils
 )

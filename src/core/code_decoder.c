@@ -19,12 +19,12 @@ HKSTATUS DECODER_Initialize()
 	return HK_STATUS_SUCCESS;
 }
 
-HKSTATUS DECODER_Decode(BYTE* asmCode, INSN_LIST* insnList)
+HKSTATUS DECODER_Decode(BYTE* asmCode, SIZE_T size, INSN_LIST* insnList)
 {
 	cs_insn* insn = NULL;
 	size_t count = 0;
 
-	count = cs_disasm(g_capstoneHandle, asmCode, 200, 0x00000000, 0, &insn);
+	count = cs_disasm(g_capstoneHandle, asmCode, size, 0x00000000, 0, &insn);
 	if (!count)
 		return HK_STATUS_FATAL;
 

@@ -11,99 +11,114 @@
 #include "common/process.h"
 
 #include "core/toolkit.h"
+#include "core/hk_controller.h"
+#include "core/code_decoder.h"
+#include "core/injector_caller.h"
+
+#include "utils/logprint.h"
 
 PROCESS_INFO *g_processInfo = NULL;
 
+void _initialize()
+{
+	EnableDebugPrivilege();
+	TOOL_Initialize();
+	TOOL_InjectDll(g_processInfo->ProcessId, "G:\\SystemTools\\VizMemChecker\\build\\src\\injector\\Debug\\injector.dll");
+	DECODER_Initialize();
+	CALLER_Initialize(g_processInfo->ProcessId);
+	HK_Initialize(g_processInfo->ProcessId);
+}
+
 int main(int argc, char* argv[])
 {
-    char *filePath = NULL;
+	char *filePath = NULL;
 
-    struct arg_int *detachPid = arg_int0("d", "detach", "<pid>", "Detach a process by pid");
-    struct arg_str *detachStr = arg_str0("f", "find", "<process_name>", "Detach a process by its name");
-    struct arg_end *end = arg_end(20);
+	struct arg_int *detachPid = arg_int0("d", "detach", "<pid>", "Detach a process by pid");
+	struct arg_str *detachStr = arg_str0("f", "find", "<process_name>", "Detach a process by its name");
+	struct arg_end *end = arg_end(20);
 
-    void *argtable[] = {
-        detachPid,
-        detachStr,
-        end,
-    };
+	void *argtable[] = {
+		detachPid,
+		detachStr,
+		end,
+	};
 
-    uint8_t nerrors = arg_parse(argc, argv, argtable);
-    if (nerrors > 0)
-    {
-        arg_print_errors(stderr, end, argv[0]);
-        arg_freetable(argtable, sizeof(argtable) / sizeof(argtable[0]));
-        return -1;
-    }
+	uint8_t nerrors = arg_parse(argc, argv, argtable);
+	if (nerrors > 0)
+	{
+		arg_print_errors(stderr, end, argv[0]);
+		arg_freetable(argtable, sizeof(argtable) / sizeof(argtable[0]));
+		return -1;
+	}
 
-    // Get execute program path
-    // i=1 to skip this(self) program command
-    for (uint8_t i = 1; i < argc; i++)
-    {
-        if (argv[i][0] != '-')
-        {
-            // Not argtable args
-            // Just filePath
-            filePath = argv[i];
-            break;
-        }
-    }
+	// Get execute program path
+	// i=1 to skip this(self) program command
+	for (uint8_t i = 1; i < argc; i++)
+	{
+		if (argv[i][0] != '-')
+		{
+			// Not argtable args
+			// Just filePath
+			filePath = argv[i];
+			break;
+		}
+	}
 
-    // ========================================== //
-    // ========== Initialize arguments ========== //
-    // ========================================== //
+	// ========================================== //
+	// ========== Initialize arguments ========== //
+	// ========================================== //
 
-    // Check arguments
-    if (detachStr->count >0 && detachPid->count > 0)
-    {
-        printf("[!] You cannot specify both \"%s\" and \"%s\" at the same time.\r\n", detachPid->hdr.datatype, detachStr->hdr.datatype);
-        return -1;
-    }
+	// Check arguments
+	if (detachStr->count >0 && detachPid->count > 0)
+	{
+		printf(COLOR_YELLOW("[!] You cannot specify both ") COLOR_PINK("%s") COLOR_YELLOW(" and ") COLOR_PINK("%s") COLOR_YELLOW(" at the same time.\r\n"), detachPid->hdr.datatype, detachStr->hdr.datatype);
+		return -1;
+	}
 
-    if (detachStr->count == 0 && detachPid->count == 0 && filePath == NULL)
-    {
-        printf("[!] Please specify process by \"%s\",\"%s\" or program path.\r\n", detachPid->hdr.datatype, detachStr->hdr.datatype);
-        return -1;
-    }
+	if (detachStr->count == 0 && detachPid->count == 0 && filePath == NULL)
+	{
+		printf(COLOR_YELLOW("[!] Please specify process by ") COLOR_PINK("%s") COLOR_YELLOW(" , ") COLOR_PINK("%s") COLOR_YELLOW(" or program path.\r\n"), detachPid->hdr.datatype, detachStr->hdr.datatype);
+		return -1;
+	}
 
-    g_processInfo = malloc(sizeof(PROCESS_INFO));
-    RtlZeroMemory(g_processInfo, sizeof(PROCESS_INFO));
+	g_processInfo = malloc(sizeof(PROCESS_INFO));
+	RtlZeroMemory(g_processInfo, sizeof(PROCESS_INFO));
 
-    // Use <process_name>
-    if (detachStr->count > 0)
-    {
-        PROC_FindProcessByName(*detachStr->sval, &g_processInfo);
-        if (!g_processInfo->ProcessHandle)
-        {
-            printf("[!] Cannot found the \"%s\" process, please check it.\r\n", *detachStr->sval);
-            return -1;
-        }
-    }
+	// Use <process_name>
+	if (detachStr->count > 0)
+	{
+		PROC_FindProcessByName(*detachStr->sval, &g_processInfo);
+		if (!g_processInfo->ProcessHandle)
+		{
+			printf(COLOR_YELLOW("[!] Cannot found the ") COLOR_PINK("%s") COLOR_YELLOW(" process, please check it.\r\n"), *detachStr->sval);
+			return -1;
+		}
+	}
 
-    // Use <pid>
-    if (detachPid->count > 0)
-    {
-        PROC_FindProcessById(*detachPid->ival, &g_processInfo);
-        if (!g_processInfo->ProcessHandle)
-        {
-            printf("[!] Cannot found the \"%d\" process, please check it.\r\n", *detachPid->ival);
-            return -1;
-        }
-    }
+	// Use <pid>
+	if (detachPid->count > 0)
+	{
+		PROC_FindProcessById(*detachPid->ival, &g_processInfo);
+		if (!g_processInfo->ProcessHandle)
+		{
+			printf(COLOR_YELLOW("[!] Cannot found the ") COLOR_PINK("%d") COLOR_YELLOW(" process, please check it.\r\n"), *detachPid->ival);
+			return -1;
+		}
+	}
 
-    printf("[+] Process: <%s : %d>\r\n", g_processInfo->ProcessName, g_processInfo->ProcessId);
+	printf(COLOR_GREEN("[+] Process: ") COLOR_PINK("<%s : %d>\r\n"), g_processInfo->ProcessName, g_processInfo->ProcessId);
 
-    // ========================================== //
-    // ========= Initialize environment ========= //
-    // ========================================== //
+	// ========================================== //
+	// ========= Initialize environment ========= //
+	// ========================================== //
 
-    TOOL_Initialize();
-    EnableDebugPrivilege();
+	_initialize();
 
-    TOOL_InjectDll(g_processInfo->ProcessId, "G:\\SystemTools\\VizMemChecker\\build\\src\\injector\\Debug\\injector.dll");
+	HK_AppendHookNode(L"Kernel32", L"HeapAlloc");
+	HK_EnableOnceHook(L"Kernel32", L"HeapAlloc");
 
-    arg_freetable(argtable, sizeof(argtable) / sizeof(argtable[0]));
-    return 0;
+	arg_freetable(argtable, sizeof(argtable) / sizeof(argtable[0]));
+	return 0;
 }
 
 

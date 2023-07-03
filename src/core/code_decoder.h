@@ -23,6 +23,6 @@ static csh g_capstoneHandle;
 static HANDLE	g_insnHeap;
 
 HKSTATUS DECODER_Initialize();
-HKSTATUS DECODER_Decode(BYTE* asmCode, INSN_LIST* insnList);
+HKSTATUS DECODER_Decode(BYTE *asmCode, SIZE_T size, INSN_LIST *insnList);
 
 #endif // !__CODE_DECODER_H__

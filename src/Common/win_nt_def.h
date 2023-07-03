@@ -32,6 +32,8 @@ PLIST_ENTRY RemoveHeadList(PLIST_ENTRY ListHead);
 PLIST_ENTRY RemoveTailList(PLIST_ENTRY ListHead);
 VOID InsertTailList(PLIST_ENTRY ListHead, PLIST_ENTRY Entry);
 VOID InsertHeadList(PLIST_ENTRY ListHead, PLIST_ENTRY Entry);
+PSINGLE_LIST_ENTRY PopEntryList(PSINGLE_LIST_ENTRY ListHead);
+VOID PushEntryList(PSINGLE_LIST_ENTRY ListHead, PSINGLE_LIST_ENTRY Entry);
 VOID AppendTailList(PLIST_ENTRY ListHead, PLIST_ENTRY ListToAppend);
 
 #endif // !__WIN_NT_DEF_H__

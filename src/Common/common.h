@@ -64,21 +64,22 @@ typedef struct _MEM_ALLOC_INFO_NODE
 
 typedef struct _MATCH_LIB_FILES
 {
-	SHORT	FileNameOffset;
-	SHORT	FuncNameOffset;
+	USHORT	FileNameOffset;
+	USHORT	FuncNameOffset;
 
 }MATCH_LIB_FILES, * PMATCH_LIB_FILES;
 
 typedef struct _HOOK_NODE
 {
 	LIST_ENTRY			ListEntry;
+	USHORT 				UID;						// UID
 	MATCH_LIB_FILES		Match;						// Match Dll and Function
 	BYTE				HookState;					// Enable or disable
 	BYTE*				HookAddress;				// Hook program address
 	BYTE*				HandlerAddress;				// Jmp to my hook function
-	SHORT				HookFuncRawCodeOffset;		// Raw code before hook
-	SHORT				HookFuncRawCodeSize;		// Raw code size
-	SHORT				HookPageProtect;			// Old page protect
+	USHORT				HookFuncRawCodeOffset;		// Raw code before hook
+	USHORT				HookFuncRawCodeSize;		// Raw code size
+	USHORT				HookPageProtect;			// Old page protect
 	BOOLEAN				BitWide;					// x86 or x64
 
 	BYTE				Data[0xFF];
@@ -93,7 +94,7 @@ typedef struct _CALLER_COMMAND
 	{
 		HOOK_NODE HookNode;
 		BYTE	AsmCode[DISASM_LENGTH];
-		SHORT	HookSize;
+		USHORT	HookSize;
 
 	}Context;
 
