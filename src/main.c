@@ -11,10 +11,31 @@
 #include "common/process.h"
 
 #include "core/toolkit.h"
+#include "core/hk_controller.h"
+#include "core/code_decoder.h"
+#include "core/injector_caller.h"
+
+#include "utils/logprint.h"
+
+#include "utils/logprint.h"
+
+#include "utils/logprint.h"
+
+#include "utils/logprint.h"
 
 #include "utils/logprint.h"
 
 PROCESS_INFO *g_processInfo = NULL;
+
+void _initialize()
+{
+	EnableDebugPrivilege();
+	TOOL_Initialize();
+	TOOL_InjectDll(g_processInfo->ProcessId, "G:\\SystemTools\\VizMemChecker\\build\\src\\injector\\Debug\\injector.dll");
+	DECODER_Initialize();
+	CALLER_Initialize(g_processInfo->ProcessId);
+	HK_Initialize(g_processInfo->ProcessId);
+}
 
 int main(int argc, char* argv[])
 {
@@ -99,10 +120,10 @@ int main(int argc, char* argv[])
 	// ========= Initialize environment ========= //
 	// ========================================== //
 
-	TOOL_Initialize();
-	EnableDebugPrivilege();
+	_initialize();
 
-	TOOL_InjectDll(g_processInfo->ProcessId, "G:\\SystemTools\\VizMemChecker\\build\\src\\injector\\Debug\\injector.dll");
+	HK_AppendHookNode(L"Kernel32", L"HeapAlloc");
+	HK_EnableOnceHook(L"Kernel32", L"HeapAlloc");
 
 	arg_freetable(argtable, sizeof(argtable) / sizeof(argtable[0]));
 	return 0;
