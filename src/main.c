@@ -19,6 +19,8 @@
 
 #include "utils/logprint.h"
 
+#include "utils/logprint.h"
+
 PROCESS_INFO *g_processInfo = NULL;
 
 void _initialize()
