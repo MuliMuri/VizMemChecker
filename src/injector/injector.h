@@ -2,49 +2,37 @@
 #ifndef __INJECTOR_H__
 #define __INJECTOR_H__
 
-typedef struct _REGS
+typedef struct _MEMORY_REGION
 {
-	DWORD eax;
-	DWORD ecx;
-	DWORD edx;
-	DWORD ebx;
-	DWORD esp;
-	DWORD ebp;
-	DWORD esi;
-	DWORD edi;
+	DWORD BaseAddress;
+	DWORD SizeOfImage;
 
-	DWORD ret;
+} MEMORY_REGION;
 
-}REGS;
-
-
-
-static HANDLE	g_hookListHeap;
-static HANDLE	g_runtimeHeap;
-
+static PVOID g_execBufferHandle;
 static BYTE* g_execBuffer;
 
+static PVOID g_hookListHandle;
 static PHOOK_NODE g_hookList;
-static PHOOK_NODE	g_node;
-static REGS		g_regs;
+
+extern PHOOK_NODE	g_node;			// Current hook_node
 
 static HANDLE	g_pipe;
 
+static PVOID g_bufferHandle;
 static BYTE*	g_buffer;
 
+static MEMORY_REGION g_myselfInfo;
 
-
-int cnt = 0;
-
-
-HKSTATUS INJTOR_Initialize();
+HKSTATUS INJTOR_Initialize(HANDLE hMyself);
 HKSTATUS INJTOR_EnableHook(PHOOK_NODE hookInfo);
 HKSTATUS INJTOR_DisableHook(PHOOK_NODE hookInfo);
-VOID HANDLER_CountFuncion();
+
+VOID _jmpBack();
 
 BOOL WINAPI DllMain(
-	HINSTANCE const instance,  // handle to DLL module
-	DWORD     const reason,    // reason for calling function
-	LPVOID    const reserved);  // reserved
+	HINSTANCE const instance, // handle to DLL module
+	DWORD const reason,		  // reason for calling function
+	LPVOID const reserved);	  // reserved
 
 #endif // !__INJECTOR_H__

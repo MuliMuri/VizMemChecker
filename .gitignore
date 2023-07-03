@@ -51,11 +51,7 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-# /src/WinForm/bin
-# /src/WinForm/obj
-# /src/Debug
-# /src/.vs
-# /src/*/Debug
+todolist
 
 # /.vs
 *build
