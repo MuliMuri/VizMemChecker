@@ -2,6 +2,8 @@
 #ifndef __INJECTOR_H__
 #define __INJECTOR_H__
 
+#define CallAddress(address) (*(void (*)(void))address)()
+
 typedef struct _MEMORY_REGION
 {
 	DWORD BaseAddress;
@@ -9,26 +11,25 @@ typedef struct _MEMORY_REGION
 
 } MEMORY_REGION;
 
-static PVOID g_execBufferHandle;
-static BYTE* g_execBuffer;
+static BYTE *g_stubCodeBuffer;
 
-static PVOID g_hookListHandle;
 static PHOOK_NODE g_hookList;
 
 extern PHOOK_NODE	g_node;			// Current hook_node
 
 static HANDLE	g_pipe;
 
-static PVOID g_bufferHandle;
 static BYTE*	g_buffer;
 
 static MEMORY_REGION g_myselfInfo;
 
 HKSTATUS INJTOR_Initialize(HANDLE hMyself);
-HKSTATUS INJTOR_EnableHook(PHOOK_NODE hookInfo);
-HKSTATUS INJTOR_DisableHook(PHOOK_NODE hookInfo);
+HKSTATUS INJTOR_AppendHook(HOOK_NODE *hookNode);
+HKSTATUS INJTOR_AppendHandler(HOOK_NODE *hookNode, CHAR *handlerName);
+HKSTATUS INJTOR_EnableHook(HOOK_NODE *hookNode);
+HKSTATUS INJTOR_DisableHook(HOOK_NODE *hookNode);
 
-VOID _jmpBack();
+VOID CheckCaller();
 
 BOOL WINAPI DllMain(
 	HINSTANCE const instance, // handle to DLL module

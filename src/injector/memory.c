@@ -84,7 +84,7 @@ PVOID MEM_Allocate(DWORD size)
 
 	LeaveCriticalSection(&g_criticalSection);
 
-	return allocate->Handle;
+	return allocate->StartAddress;
 }
 
 VOID MEM_Free(PVOID handle)
@@ -107,6 +107,28 @@ VOID MEM_Free(PVOID handle)
 
 		current = current->NextBlock;
 	} while (current != memoryBlockList);
+
+	MEM_BLOCK *prevBlock = current->PrevBlock;
+	MEM_BLOCK *nextBlock = current->NextBlock;
+
+	if (prevBlock->Handle == 0 && prevBlock < current)	// Make sure the direction
+	{
+		prevBlock->Size += (current->Size + sizeof(MEM_BLOCK));
+		prevBlock->NextBlock = current->NextBlock;
+		((MEM_BLOCK *)(current->NextBlock))->PrevBlock = prevBlock;
+
+		RtlZeroMemory(current, sizeof(MEM_BLOCK));
+
+		current = prevBlock;
+	}
+	if (nextBlock->Handle == 0 && current < nextBlock)
+	{
+		current->Size += (nextBlock->Size + sizeof(MEM_BLOCK));
+		current->NextBlock = nextBlock->NextBlock;
+		((MEM_BLOCK *)(nextBlock->NextBlock))->PrevBlock = current;
+
+		RtlZeroMemory(nextBlock, sizeof(MEM_BLOCK));
+	}
 
 	LeaveCriticalSection(&g_criticalSection);
 }

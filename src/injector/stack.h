@@ -17,17 +17,31 @@ typedef struct _STACK_CONTEXT
 
 	DWORD ret;
 
-	DWORD HandlerAddress;
-
 } STACK_CONTEXT, *PSTACK_CONTEXT;
 
+typedef struct _THREAD_STACK
+{
+	SINGLE_LIST_ENTRY Entry;
 
-static SINGLE_LIST_ENTRY g_contextListHead;
+	DWORD Tid;
+	BYTE IsProxyCall;
+
+	SINGLE_LIST_ENTRY StackList;
+
+}THREAD_STACK, *PTHREAD_STACK;
+
+static SINGLE_LIST_ENTRY g_threadStackList;
 
 extern STACK_CONTEXT g_context;
+
+PTHREAD_STACK SearchStackGroupByTid(DWORD tid);
 
 VOID STACK_Initialize();
 VOID STACK_Push();
 VOID STACK_Pop();
+VOID STACK_Proxy();
+VOID STACK_UnProxy();
+BYTE STACK_CheckProxy();
+VOID STACK_Reload(PSTACK_CONTEXT stack);
 
 #endif

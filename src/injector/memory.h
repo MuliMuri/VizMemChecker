@@ -20,7 +20,7 @@ MEM_BLOCK* memoryBlockList;
 
 VOID MEM_Initialize();
 PVOID MEM_Allocate(DWORD size);
-VOID MEM_Free(PVOID handle);
-VOID *MEM_GetAddress(PVOID handle);
+VOID MEM_Free(PVOID address);
+//VOID *MEM_GetAddress(PVOID handle);
 
 #endif

@@ -52,10 +52,13 @@ Mkfile.old
 dkms.conf
 
 todolist
+note.*
 
 # /.vs
 *build
 *.vscode
-src/libs
+src/libs/*
+!src/libs/CMakeLists.txt
+!src/libs/download.bat
 !src/libs/README.md
 

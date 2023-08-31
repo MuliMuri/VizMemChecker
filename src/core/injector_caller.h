@@ -6,6 +6,6 @@
 static HANDLE g_pipe;
 
 HKSTATUS CALLER_Initialize(DWORD pid);
-HKSTATUS CALLER_EnableHook(PHOOK_NODE hookNode);
+HKSTATUS CALLER_Call(USHORT code, HOOK_NODE *hookNode, ...);
 
 #endif // !__INJECTOR_CALLER_H__

@@ -6,11 +6,12 @@ static HANDLE			g_hookListHeap;			// A heap be save nodes of hooks structs
 
 static PHOOK_NODE		g_hookList;					// HOOK_NODE ListEntry
 
+HKSTATUS EXPORT HK_Initialize(DWORD pid);
+HKSTATUS EXPORT HK_AppendHook(CHAR *FileName, CHAR *FuncName, USHORT* uid);
+HKSTATUS EXPORT HK_AppendHandler(USHORT uid, CHAR *handlerName);
+HKSTATUS EXPORT HK_RemoveHook(CHAR *FileName, CHAR *FuncName);
+HKSTATUS EXPORT HK_EnableHook(USHORT uid);
 
-HKSTATUS EXPORT HK_Initialize();
-HKSTATUS EXPORT HK_AppendHookNode(WCHAR* FileName, WCHAR* FuncName);
-HKSTATUS EXPORT HK_RemoveHookNode(WCHAR* FileName, WCHAR* FuncName);
-HKSTATUS EXPORT HK_EnableOnceHook(WCHAR* FileName, WCHAR* FuncName);
-
+PHOOK_NODE HK_EnumHook();
 
 #endif // !__HK_CONTROLLER_H__

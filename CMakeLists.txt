@@ -20,6 +20,7 @@ add_subdirectory(src/libs)
 add_subdirectory(src/core)
 add_subdirectory(src/utils)
 add_subdirectory(src/injector)
+add_subdirectory(src/plugins)
 if(RUN_TEST_UNIT)
 	enable_testing()
 	add_subdirectory(src/test)
@@ -37,4 +38,5 @@ target_link_libraries(
 	common
 	core
 	utils
+	plugins
 )

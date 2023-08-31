@@ -23,15 +23,13 @@
 
 PHOOK_NODE g_node; // Current hook_node
 
-BYTE* _TryFindMatchFuncAddr(WCHAR* FileName, WCHAR* FuncName)
+BYTE* _TryFindMatchFuncAddr(CHAR* fileName, CHAR* funcName)
 {
-	CHAR funcName[64] = { 0 };
 
-	HMODULE hDll = LoadLibraryW(FileName);
+	HMODULE hDll = LoadLibraryA(fileName);
 	if (!hDll)
 		return NULL;
 
-	wcstombs(&funcName, FuncName, 64);
 	FARPROC func = GetProcAddress(hDll, funcName);
 
 	return (BYTE*)func;
@@ -54,8 +52,7 @@ HKSTATUS _CreateDebuggerByPipe(DWORD pid)
 
 HKSTATUS _TaskLoop()
 {
-	g_bufferHandle = MEM_Allocate(BUFFER_LENGTH);
-	g_buffer = MEM_GetAddress(g_bufferHandle);
+	g_buffer = MEM_Allocate(BUFFER_LENGTH);
 
 	DWORD size = 0;
 	HKSTATUS status = HK_STATUS_SUCCESS;
@@ -68,16 +65,27 @@ HKSTATUS _TaskLoop()
 		if (!ReadFile(g_pipe, g_buffer, BUFFER_LENGTH, &size, NULL) || g_buffer == NULL)
 			return HK_STATUS_FATAL;
 
-		CALLER_COMMAND* cmdStruct = (CALLER_COMMAND*)g_buffer;
+		CALLER_COMMAND* cmd = (CALLER_COMMAND*)g_buffer;
 
-		switch (cmdStruct->Command)
+		switch (cmd->Command)
 		{
+		case COMMAND_HOOK_APPEND:
+			status = INJTOR_AppendHook(&cmd->Context.HookNode);
+
+			break;
+		case COMMAND_HOOK_REMOVE:
+
+			break;
+		case COMMAND_HANDLER_APPEND:
+			status = INJTOR_AppendHandler(&cmd->Context.HookNode, &cmd->ExtraContext.HandlerName);
+
+			break;
 		case COMMAND_HOOK_ENABLE:
-			status = INJTOR_EnableHook(&cmdStruct->Context.HookNode);
+			status = INJTOR_EnableHook(&cmd->Context.HookNode);
 
 			break;
 		case COMMAND_HOOK_DISABLE:
-			status = INJTOR_DisableHook(&cmdStruct->Context.HookNode);
+			status = INJTOR_DisableHook(&cmd->Context.HookNode);
 
 			break;
 		default:
@@ -86,14 +94,29 @@ HKSTATUS _TaskLoop()
 
 		// CallBack
 		if (status != HK_STATUS_SUCCESS)
-			cmdStruct->Command = COMMAND_ERR;
+			cmd->Command = COMMAND_ERR;
 
-		if (!WriteFile(g_pipe, g_buffer, BUFFER_LENGTH, &size, NULL))
+		if (!WriteFile(g_pipe, cmd, sizeof(CALLER_COMMAND), &size, NULL))
 			break;/*return HK_STATUS_FATAL;*/
 	}
 }
 
-SHORT _CalcHookSize(BYTE* asmCode)
+HKSTATUS _StubCodeInitialize()
+{
+	g_stubCodeBuffer = MEM_Allocate(DISASM_LENGTH); // To allocate maximum possible memory for disassembly
+	if (!g_stubCodeBuffer)
+		return HK_STATUS_FATAL;
+
+	RtlFillMemory(g_stubCodeBuffer, DISASM_LENGTH, '\x90'); // Use nop to fill this
+
+	// Fill address into stub array
+	g_stubCodeBuffer[0] = '\x68'; // push &node
+	g_stubCodeBuffer[5] = '\xE9'; // jmp HANDLER_PreCall (naked)
+
+	return HK_STATUS_SUCCESS;
+}
+
+USHORT _CalcHookSize(BYTE* asmCode)
 {
 	DWORD size = 0;
 	CALLER_COMMAND cmd = { 0 };
@@ -110,66 +133,27 @@ SHORT _CalcHookSize(BYTE* asmCode)
 	return ((CALLER_COMMAND*)g_buffer)->Context.HookSize;
 }
 
-BYTE* _CalcE9JmpAddress(BYTE* dstAddr, BYTE* srcAddr)
-{
-	return dstAddr - srcAddr - 0x5;
-}
-
-VOID _jmpBack()
-{
-	SHORT size = g_node->HookFuncRawCodeSize;
-	BYTE stubCode[5] = { 0 };
-	stubCode[0] = '\xE9';
-
-	BYTE *addr = _CalcE9JmpAddress(g_node->HookAddress + size, g_execBuffer + size);
-	RtlCopyMemory(&stubCode[1], &addr, 0x4);
-	RtlCopyMemory(g_execBuffer, &g_node->Data[g_node->HookFuncRawCodeOffset], size);
-	RtlCopyMemory(g_execBuffer + size, &stubCode, 0x5);
-
-	__asm
-	{
-		call STACK_Pop
-
-		mov eax, g_context.eax
-    	mov ecx, g_context.ecx
-    	mov edx, g_context.edx
-    	mov ebx, g_context.ebx
-    	mov esp, g_context.esp
-    	mov ebp, g_context.ebp
-    	mov esi, g_context.esi
-    	mov edi, g_context.edi
-    	
-		jmp g_execBuffer
-	}
-}
-
-VOID CheckCaller()
-{
-	DWORD start = g_myselfInfo.BaseAddress;
-	DWORD stop = g_myselfInfo.BaseAddress + g_myselfInfo.SizeOfImage;
-
-	if (g_context.ret >= start && g_context.ret <= stop)
-	{
-		// myself call hooked function
-		_jmpBack();
-	}
-
-	// other wise call handler
-}
-
 VOID __declspec(naked) HANDLER_PreCall()
 {
+	/*
+	* Here, if caller is myself, call the function by proxy
+	* Attention: 	Keep stack balance
+	* 				Keep 'g_context' switch to correct context
+	*/
 	__asm
 	{
 		/*
-		stack map
+		* stack map
 
-		push &node
-		push address of HANDLER_xxx
+		* push &node
+		* caller return address
 		*/
 
-		pop g_context.HandlerAddress // address of HANDLER_xxx
 		pop g_node
+
+		call STACK_CheckProxy
+		test al, al
+		jnz HANDLER_ContinueInProxy
 
     	mov g_context.eax, eax
 		mov g_context.ecx, ecx
@@ -179,18 +163,43 @@ VOID __declspec(naked) HANDLER_PreCall()
 
 		mov g_context.edx, edx
 		mov g_context.ebx, ebx
-		mov g_context.esp, esp // now in here, the address is same to raw
+		mov g_context.esp, esp // Now in here, the esp is same as raw
 		mov g_context.ebp, ebp
 		mov g_context.esi, esi
 		mov g_context.edi, edi
 
 		call STACK_Push
 
-		//call CheckCaller
+		call CheckCaller
 
-		mov eax, g_context.HandlerAddress
-		jmp eax
+		jmp HANDLER_PreChain
 	}
+}
+
+VOID CheckCaller()
+{
+	DWORD ret = 0;
+	DWORD start = g_myselfInfo.BaseAddress;
+	DWORD stop = g_myselfInfo.BaseAddress + g_myselfInfo.SizeOfImage;
+
+	__asm
+	{
+		mov eax, ss:[esp + 0x4 + 0x4 + 0xC]
+		mov ret, eax
+	}
+
+	if (ret >= start && ret <= stop)
+	{
+		/*
+		* Proxy caller, in here need to call the raw function
+		*/
+		STACK_Pop();	// Clear myself regs context
+		HANDLER_ProxyCaller();
+
+		// Not run here
+	}
+
+	// other wise call handler
 }
 
 // EntryPoint
@@ -202,19 +211,12 @@ HKSTATUS INJTOR_Initialize(HANDLE hMyself)
 
 	MEM_Initialize();
 	STACK_Initialize();
+	_StubCodeInitialize();
 
-	g_hookListHandle = MEM_Allocate(sizeof(HOOK_NODE));
-	g_hookList = MEM_GetAddress(g_hookListHandle);
+	g_hookList = MEM_Allocate(sizeof(HOOK_NODE));
 	if (!g_hookList)
 		return HK_STATUS_FATAL;
 	InitializeListHead(&g_hookList->ListEntry);
-
-	g_execBufferHandle = MEM_Allocate(0x100);
-	g_execBuffer = MEM_GetAddress(g_execBufferHandle);
-	if (!g_execBuffer)
-		return HK_STATUS_FATAL;
-	DWORD temp = 0;
-	VirtualProtect(g_execBuffer, 0x100, PAGE_EXECUTE_READWRITE, &temp);
 
 	MODULEINFO tempMyself;
 	GetModuleInformation(GetCurrentProcess(), hMyself, &tempMyself, sizeof(MODULEINFO));
@@ -246,88 +248,90 @@ HKSTATUS INJTOR_Initialize(HANDLE hMyself)
 * 
 */
 
-HKSTATUS INJTOR_EnableHook(PHOOK_NODE hookInfo)
+HKSTATUS INJTOR_AppendHook(HOOK_NODE* hookNode)
 {
-	PVOID nodeHandle = MEM_Allocate(sizeof(HOOK_NODE));
-	HOOK_NODE *node = MEM_GetAddress(nodeHandle);
+	HOOK_NODE* node = MEM_Allocate(sizeof(HOOK_NODE));
 	if (!node)
 		return HK_STATUS_FATAL;
 
-	RtlCopyMemory(node, hookInfo, sizeof(HOOK_NODE));
+	RtlCopyMemory(node, hookNode, sizeof(HOOK_NODE));
 
-	WCHAR* fileName = &node->Data[node->Match.FileNameOffset];
-	CHAR* funcName = &node->Data[node->Match.FuncNameOffset];
+	CHAR *fileName = &node->Data[node->Match.FileNameOffset];
+	CHAR *funcName = &node->Data[node->Match.FuncNameOffset];
 
 	if (!node->HookAddress)
 		node->HookAddress = _TryFindMatchFuncAddr(fileName, funcName);
 
-	if (!node->HandlerAddress)
-		node->HandlerAddress = &HANDLER_Count;	// TODO: Custom in the future
-
-	if (!node->HookAddress || !node->HandlerAddress)
+	if (!node->HookAddress)
 		return HK_STATUS_FATAL;
 
-	BYTE* rawCode = &node->Data[node->HookFuncRawCodeOffset];
-	BYTE* hookAddr = node->HookAddress;
-	BYTE* handlerAddr = node->HandlerAddress;
+	BYTE *rawCode = &node->Data[node->HookFuncRawCodeOffset];
 
-	RtlCopyMemory(rawCode, hookAddr, DISASM_LENGTH);
+	RtlCopyMemory(rawCode, node->HookAddress, DISASM_LENGTH);
 
-	SHORT size = _CalcHookSize(rawCode);
+	USHORT size = _CalcHookSize(rawCode);
 	if (size < HOOK_STUB_LENGTH)
 		return HK_STATUS_FATAL;
 
-	PVOID stubCodeHandle = MEM_Allocate(size);
-	BYTE *stubCode = MEM_GetAddress(stubCodeHandle);
-	if (!stubCode)
-		return HK_STATUS_FATAL;
-	node->HookFuncRawCodeSize = size;
-	RtlFillMemory(stubCode, size, '\x90');		// Use nop to fill this heap
-	RtlFillMemory(&rawCode[size], DISASM_LENGTH - size, 0x00);		// Remove surpuls code
+	node->HookSize = size;
+	RtlFillMemory(&rawCode[size], DISASM_LENGTH - size, 0x00); // Remove surpuls code
 
-	DWORD preCallerAddr = (DWORD)_CalcE9JmpAddress(&HANDLER_PreCall, hookAddr + 0xA);	// hookAddr is push, need to add 5
+	VirtualProtect(node->HookAddress, size, PAGE_EXECUTE_READWRITE, &node->Data[node->HookPageProtect]); // Adjust privilege
 
-	// Fill address into stub array
-	stubCode[0] = '\x68';			// push &node
-	stubCode[5] = '\x68';			// push address of HANDLER_xxx
-	stubCode[10] = '\xE9';			// jmp HANDLER_PreCall (naked)
-
-	RtlCopyMemory(&stubCode[1], &node, 0x4);
-	RtlCopyMemory(&stubCode[6], &handlerAddr, 0x4);
-	RtlCopyMemory(&stubCode[11], &preCallerAddr, 0x4);
-
-	VirtualProtect(hookAddr, size, PAGE_EXECUTE_READWRITE, &node->Data[node->HookPageProtect]);
-
-	RtlCopyMemory(hookAddr, stubCode, size);	// Hook done
-
-	node->HookState = TRUE;
-	node->UID = 1;	//TODO:
 	InsertTailList(&g_hookList->ListEntry, &node->ListEntry);
 
-	HANDLER_AppendFuncChain(node);
-
-	MEM_Free(stubCodeHandle);
-
-	DebugBreak();
-	HANDLE a = HeapCreate(HEAP_GENERATE_EXCEPTIONS, 0x100, 0x1000);
-	HeapAlloc(a, HEAP_ZERO_MEMORY, 0x100);		// Test call <<<<=============================================
+	RtlCopyMemory(hookNode, node, sizeof(HOOK_NODE));
 
 	return HK_STATUS_SUCCESS;
 }
 
-HKSTATUS INJTOR_DisableHook(PHOOK_NODE hookInfo)
+HKSTATUS INJTOR_AppendHandler(HOOK_NODE* hookNode, CHAR* handlerName)
 {
-	if (!hookInfo->HookAddress || !hookInfo->HandlerAddress)
-		return HK_STATUS_FATAL;
+	HANDLER_CHAIN *handlerChain = hookNode->HandlerChain;
+	HANDLER_TABLE *handlerTable = SearchHandler(handlerName);
 
-	BYTE* rawCode = &hookInfo->Data[hookInfo->HookFuncRawCodeOffset];
-	BYTE* hookAddr = hookInfo->HookAddress;
+	for (size_t i = 0; i < hookNode->HandlerCount; i++)
+	{
+		if (handlerChain[i].HandlerAddress == handlerTable->HandlerAddress)
+			return HK_STATUS_SUCCESS;
+	}
 
-	RtlCopyMemory(rawCode, hookAddr, 0x5);
-
-	hookInfo->HookState = FALSE;
+	handlerChain = &handlerChain[hookNode->HandlerCount];
+	handlerChain->HandlerAddress = handlerTable->HandlerAddress;
+	hookNode->HandlerCount++;
 
 	return HK_STATUS_SUCCESS;
+}
+
+HKSTATUS INJTOR_EnableHook(HOOK_NODE* hookNode)
+{
+	DWORD preHandlerAddr = &HANDLER_PreCall;
+	DWORD hookAddr = hookNode->HookAddress;
+	DWORD preCallerAddr = (DWORD)CalcE9JmpAddress(preHandlerAddr, (hookAddr + 0x5)); // hookAddr is push, need to add 0x5
+
+	RtlCopyMemory(&g_stubCodeBuffer[1], &hookNode, 0x4);		// push &hookNode
+	RtlCopyMemory(&g_stubCodeBuffer[6], &preCallerAddr, 0x4);	// jmp HANDLER_PreCall (naked)
+
+	RtlCopyMemory(hookNode->HookAddress, g_stubCodeBuffer, hookNode->HookSize); // Hook done
+
+	hookNode->Status = TRUE;
+
+	return HK_STATUS_SUCCESS;
+}
+
+HKSTATUS INJTOR_DisableHook(HOOK_NODE* hookNode)
+{
+	// if (!hookInfo->HookAddress || !hookInfo->HandlerAddress)
+	// 	return HK_STATUS_FATAL;
+
+	// BYTE* rawCode = &hookInfo->Data[hookInfo->HookFuncRawCodeOffset];
+	// BYTE* hookAddr = hookInfo->HookAddress;
+
+	// RtlCopyMemory(rawCode, hookAddr, 0x5);
+
+	// hookInfo->HookState = FALSE;
+
+	// return HK_STATUS_SUCCESS;
 }
 
 BOOL APIENTRY DllMain(HINSTANCE const instance, DWORD const reason, LPVOID const reserved)
