@@ -7,11 +7,11 @@
 #include "injector_caller.h"
 
 
-PLIST_ENTRY _SearchHookNode(WCHAR* FileName, WCHAR* FuncName)	// TODO: Change back to PHOOK_NODE
+PHOOK_NODE _SearchHookByName(CHAR* FileName, CHAR* FuncName)
 {
 	PLIST_ENTRY Entry = g_hookList->ListEntry.Flink;
-	WCHAR* hookFileName = NULL;
-	WCHAR* hookFuncName = NULL;
+	CHAR* hookFileName = NULL;
+	CHAR* hookFuncName = NULL;
 
 	while (Entry != &g_hookList->ListEntry)
 	{
@@ -20,8 +20,8 @@ PLIST_ENTRY _SearchHookNode(WCHAR* FileName, WCHAR* FuncName)	// TODO: Change ba
 		hookFileName = &pHook->Data[pHook->Match.FileNameOffset];
 		hookFuncName = &pHook->Data[pHook->Match.FuncNameOffset];
 
-		if (!wcscmp(hookFileName, FileName) && !wcscmp(hookFuncName, FuncName))
-			return &pHook->ListEntry;
+		if (!strcmp(hookFileName, FileName) && !strcmp(hookFuncName, FuncName))
+			return pHook;
 
 		Entry = Entry->Flink;
 	}
@@ -29,7 +29,21 @@ PLIST_ENTRY _SearchHookNode(WCHAR* FileName, WCHAR* FuncName)	// TODO: Change ba
 	return NULL;
 }
 
-HKSTATUS EXPORT HK_Initialize(DWORD pid)//TODO: change
+PHOOK_NODE _SearchHookByUid(USHORT uid)
+{
+	LIST_ENTRY *entry = g_hookList->ListEntry.Flink;
+
+	while (entry != &g_hookList->ListEntry)
+	{
+		HOOK_NODE *current = CONTAINING_RECORD(entry, HOOK_NODE, ListEntry);
+		if (current->UID == uid)
+			return current;
+	}
+
+	return NULL;
+}
+
+HKSTATUS EXPORT HK_Initialize(DWORD pid)
 {
 	// Create a heap to be save MATCH_LIB_FILES node
 
@@ -49,7 +63,7 @@ HKSTATUS EXPORT HK_Initialize(DWORD pid)//TODO: change
 	return HK_STATUS_SUCCESS;
 }
 
-HKSTATUS EXPORT HK_AppendHookNode(WCHAR* FileName, WCHAR* FuncName)
+HKSTATUS EXPORT HK_AppendHook(CHAR* FileName, CHAR* FuncName, USHORT* uid)
 {
 	// Maybe allocate char memory?
 	// sometimes the chars will be free in caller (like stack free)
@@ -58,9 +72,11 @@ HKSTATUS EXPORT HK_AppendHookNode(WCHAR* FileName, WCHAR* FuncName)
 	if (!hookNode)
 		return HK_STATUS_FATAL;
 
-	SHORT fileNameLength = wcslen(FileName) * sizeof(WCHAR);
-	SHORT funcNameLength = wcslen(FuncName) * sizeof(WCHAR);
+	*uid = (CONTAINING_RECORD(g_hookList->ListEntry.Flink, HOOK_NODE, ListEntry)->UID) + 1;
+	USHORT fileNameLength = strlen(FileName) * sizeof(CHAR);
+	USHORT funcNameLength = strlen(FuncName) * sizeof(CHAR);
 
+	hookNode->UID = *uid;
 	hookNode->Match.FileNameOffset = 0;
 	hookNode->Match.FuncNameOffset = fileNameLength + 0x2;
 	hookNode->HookPageProtect = hookNode->Match.FuncNameOffset + funcNameLength + 0x2;
@@ -69,42 +85,52 @@ HKSTATUS EXPORT HK_AppendHookNode(WCHAR* FileName, WCHAR* FuncName)
 	RtlCopyMemory(&hookNode->Data[hookNode->Match.FileNameOffset], FileName, fileNameLength);
 	RtlCopyMemory(&hookNode->Data[hookNode->Match.FuncNameOffset], FuncName, funcNameLength);
 
+	CALLER_Call(COMMAND_HOOK_APPEND, hookNode);
+
 	InsertTailList(&g_hookList->ListEntry, &hookNode->ListEntry);
 	
 	return HK_STATUS_SUCCESS;
 }
 
-HKSTATUS EXPORT HK_RemoveHookNode(WCHAR* FileName, WCHAR* FuncName)
+HKSTATUS EXPORT HK_RemoveHook(CHAR* FileName, CHAR* FuncName)
 {
-	PLIST_ENTRY Entry = _SearchHookNode(FileName, FuncName);
-	if (!Entry)
+	PHOOK_NODE node = _SearchHookByName(FileName, FuncName);
+	if (!node)
 	{
-		RemoveEntryList(Entry);
-		HeapFree(g_hookListHeap, 0, CONTAINING_RECORD(Entry, HOOK_NODE, ListEntry));
+		RemoveEntryList(&node->ListEntry);
+		HeapFree(g_hookListHeap, 0, node);
 	}
 
 	return HK_STATUS_SUCCESS;
 }
 
-HKSTATUS EXPORT HK_EnableOnceHook(WCHAR* FileName, WCHAR* FuncName)
+HKSTATUS EXPORT HK_AppendHandler(USHORT uid, CHAR *handlerName)
 {
-	LIST_ENTRY* entry = _SearchHookNode(FileName, FuncName);
-	HOOK_NODE* hookNode = CONTAINING_RECORD(entry, HOOK_NODE, ListEntry);
-	
-	CALLER_EnableHook(hookNode);
+	HOOK_NODE *node = _SearchHookByUid(uid);
+
+	CALLER_Call(COMMAND_HANDLER_APPEND, node, handlerName);
+
+	return HK_STATUS_SUCCESS;
 }
 
-HKSTATUS HK_DisableOnceHook(WCHAR* FileName, WCHAR* FuncName)
-{
-
-}
-
-HKSTATUS HK_EnableAllHook(WCHAR* FileName, WCHAR* FuncName)
+HKSTATUS EXPORT HK_RemoveFunction(USHORT uid, CHAR* funcName)
 {
 
 }
 
-HKSTATUS HK_DisableAllHook(WCHAR* FileName, WCHAR* FuncName)
+HKSTATUS EXPORT HK_EnableHook(USHORT uid)
+{
+	HOOK_NODE *hookNode = _SearchHookByUid(uid);
+
+	CALLER_Call(COMMAND_HOOK_ENABLE, hookNode);
+}
+
+HKSTATUS HK_DisableHook(CHAR* FileName, CHAR* FuncName)
 {
 
+}
+
+PHOOK_NODE HK_EnumHook()
+{
+	return g_hookList;
 }

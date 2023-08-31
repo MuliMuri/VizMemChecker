@@ -17,6 +17,8 @@
 
 #include "utils/logprint.h"
 
+#include "cmd.h"
+
 PROCESS_INFO *g_processInfo = NULL;
 
 void _initialize()
@@ -27,6 +29,37 @@ void _initialize()
 	DECODER_Initialize();
 	CALLER_Initialize(g_processInfo->ProcessId);
 	HK_Initialize(g_processInfo->ProcessId);
+}
+
+void taskLoop()
+{
+	char *codeBuffer = malloc(0x100);
+
+	// struct arg_str *hookAdd = arg_str0("ha", "ha", NULL, "Add you want to hook the target");
+	// struct arg_str *hookClean = arg_str0("hc", "hc", NULL, "Clean the target by id");
+	// struct arg_str *hookEnable = arg_str0("he", "he", NULL, "Enable hook by id");
+	// struct arg_str *hookDisable = arg_str0("hd", "hd", NULL, "Disable hook by id");
+	// struct arg_str *hookList = arg_str0("hl", "hl", NULL, "List current HookList");
+	// struct arg_end *end = arg_end(20);
+
+	// void *argtable_L1[] = {
+	// 	hookAdd,
+	// 	hookClean,
+	// 	hookEnable,
+	// 	hookDisable,
+	// 	hookList,
+	// 	end
+	// };
+
+	while (TRUE)
+	{
+		printf(COLOR_PINK("(%s)") "  >>> ", g_processInfo->ProcessName);
+		fgets(codeBuffer, 0x100, stdin);
+		codeBuffer[strcspn(codeBuffer, "\r\n")] = '\0';
+
+		CMD_DecodeAndExec(codeBuffer);
+	}
+	
 }
 
 int main(int argc, char* argv[])
@@ -114,10 +147,10 @@ int main(int argc, char* argv[])
 
 	_initialize();
 
-	HK_AppendHookNode(L"Kernel32", L"HeapAlloc");
-	HK_EnableOnceHook(L"Kernel32", L"HeapAlloc");
-
 	arg_freetable(argtable, sizeof(argtable) / sizeof(argtable[0]));
+
+	taskLoop();
+
 	return 0;
 }
 
